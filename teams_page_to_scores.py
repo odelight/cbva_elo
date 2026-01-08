@@ -41,12 +41,15 @@ def extract_matches_from_data(data, team_id):
     """
     games = []
 
-    # Matches can be in 'playoffs' and/or 'pool_play' arrays
+    # Collect matches from playoffs and pool play
     match_sources = []
     if 'playoffs' in data and data['playoffs']:
         match_sources.extend(data['playoffs'])
-    if 'pool_play' in data and data['pool_play']:
-        match_sources.extend(data['pool_play'])
+    # Pool play matches are nested inside pools[].series
+    if 'pools' in data and data['pools']:
+        for pool in data['pools']:
+            if 'series' in pool and pool['series']:
+                match_sources.extend(pool['series'])
 
     for match in match_sources:
         team_a = match.get('team_a_url')
