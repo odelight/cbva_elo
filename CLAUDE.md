@@ -71,6 +71,21 @@ team URL → teams_page_to_scores.py → team_id, player_ids, game results
 `teams_page_to_scores.py` outputs:
 ```
 <team-id> <player1-id> <player2-id>
-<opponent-team-id> <score1> <score2>
+<opponent-team-id> <set1-our>-<set1-their> <set2-our>-<set2-their> ...
 ...
+```
+
+Example output:
+```
+gs0cxnVR troyfitzgerald ayrtongarciajurado
+c3BatH1k 13-21 10-21
+5SmBMlDh 21-16 21-19
+```
+
+The function returns `(team_id, player_ids, games)` where each game is a dict:
+```python
+{
+    'opponent_team_id': str,
+    'sets': [(our_score, their_score), ...]  # e.g., [(21, 19), (18, 21)]
+}
 ```
