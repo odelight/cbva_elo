@@ -30,7 +30,22 @@ Scripts accept URLs as command-line arguments or prompt interactively if not pro
 - `requests` - HTTP requests
 - `beautifulsoup4` - HTML parsing
 
-No requirements.txt exists; install dependencies manually: `pip install requests beautifulsoup4`
+No requirements.txt exists; install dependencies manually: `pip install requests beautifulsoup4 pytest`
+
+## Testing
+
+```bash
+# Run all tests
+python -m pytest
+
+# Run with verbose output
+python -m pytest -v
+
+# Run a single test file
+python -m pytest tests/test_scrape_tournaments.py
+```
+
+Tests are integration tests that run against live cbva.com.
 
 ## Architecture
 
@@ -59,7 +74,3 @@ team URL → teams_page_to_scores.py → team_id, player_ids, game results
 <opponent-team-id> <score1> <score2>
 ...
 ```
-
-## Known Issues
-
-`teams_page_to_scores.py` contains duplicated code blocks from incomplete editing - the file has malformed copy-paste content that results in syntax errors if fully parsed.

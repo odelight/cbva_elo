@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(wc:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(cat:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
