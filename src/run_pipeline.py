@@ -6,6 +6,7 @@ Stages:
 1. Scrape all tournament URLs from cbva.com/t
 2. For each tournament, scrape all team URLs
 3. For each team, scrape player IDs and game results
+4. Calculate ELO ratings for all players
 
 Outputs are saved to text files in the data/ directory.
 """
@@ -17,6 +18,7 @@ from datetime import datetime
 from scrape_tournaments import scrape_cbva_links
 from tournament_to_teams import scrape_tournament_team_links
 from teams_page_to_scores import scrape_team_page
+from calculate_elo import calculate_all_elos
 
 
 def ensure_data_dir():
@@ -83,10 +85,27 @@ def run_pipeline():
 
     print(f"  Saved to {results_file}")
 
+    # Stage 4: Calculate ELO ratings
+    print("\nStage 4: Calculating ELO ratings...")
+    elos = calculate_all_elos(results_file)
+    print(f"  Calculated ratings for {len(elos)} players")
+
+    elo_file = os.path.join(data_dir, f'elo_{timestamp}.txt')
+    ranked = sorted(elos.items(), key=lambda x: x[1], reverse=True)
+
+    with open(elo_file, 'w') as f:
+        f.write("# CBVA Player ELO Rankings\n")
+        f.write(f"# Total players: {len(ranked)}\n\n")
+        for rank, (player_id, elo) in enumerate(ranked, 1):
+            f.write(f"{rank:4d}. {player_id:30s} {elo:7.1f}\n")
+
+    print(f"  Saved to {elo_file}")
+
     print("\nPipeline complete!")
     print(f"  Tournaments: {tournaments_file}")
     print(f"  Teams: {teams_file}")
     print(f"  Results: {results_file}")
+    print(f"  ELO Rankings: {elo_file}")
 
 
 if __name__ == "__main__":
