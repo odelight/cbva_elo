@@ -8,19 +8,19 @@ Python web scraping pipeline for extracting Colorado Beach Volleyball Associatio
 
 ## Running Scripts
 
-All scripts are standalone CLI tools with no build system:
+All scripts are standalone CLI tools in the `src/` directory:
 
 ```bash
 # Stage 1: Get all tournament URLs
-python scrape_tournaments.py
+python src/scrape_tournaments.py
 
 # Stage 2: Get team URLs for a tournament
-python tournament_to_teams.py <tournament-url>
-python tournament_to_teams.py https://cbva.com/t/12345
+python src/tournament_to_teams.py <tournament-url>
+python src/tournament_to_teams.py https://cbva.com/t/12345
 
 # Stage 3: Get team data with player IDs and game scores
-python teams_page_to_scores.py <team-url>
-python teams_page_to_scores.py https://cbva.com/t/12345/teams/67890
+python src/teams_page_to_scores.py <team-url>
+python src/teams_page_to_scores.py https://cbva.com/t/12345/teams/67890
 ```
 
 Scripts accept URLs as command-line arguments or prompt interactively if not provided.
