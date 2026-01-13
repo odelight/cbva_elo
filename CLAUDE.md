@@ -8,7 +8,22 @@ Python web scraping pipeline for extracting Colorado Beach Volleyball Associatio
 
 ## Running Scripts
 
-All scripts are standalone CLI tools in the `src/` directory:
+### Full Pipeline
+
+Run the entire pipeline end-to-end, saving results to timestamped files in `data/`:
+
+```bash
+python src/run_pipeline.py
+```
+
+This creates three output files:
+- `data/tournaments_<timestamp>.txt` - All tournament URLs
+- `data/teams_<timestamp>.txt` - All team URLs
+- `data/results_<timestamp>.txt` - Team data and game results
+
+### Individual Stages
+
+Scripts can also be run individually in the `src/` directory:
 
 ```bash
 # Stage 1: Get all tournament URLs

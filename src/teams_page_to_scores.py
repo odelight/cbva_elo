@@ -12,6 +12,8 @@ def extract_json_data(html_content):
     The site uses client-side rendering with JSON embedded in a script tag
     in the pattern: let val = "...escaped JSON...";
     """
+    import codecs
+
     # Find the JSON data embedded in the script
     pattern = r'let val = "(.+?)";'
     match = re.search(pattern, html_content)
@@ -20,8 +22,17 @@ def extract_json_data(html_content):
         return None
 
     json_string = match.group(1)
-    # Unescape the JSON string (handles \" and \\ escapes)
-    json_string = json_string.encode().decode('unicode_escape')
+
+    # Convert Rust-style unicode escapes \u{XX} to standard \uXXXX format
+    # e.g., \u{a0} -> \u00a0
+    def convert_rust_unicode(m):
+        hex_val = m.group(1)
+        return f'\\u{hex_val.zfill(4)}'
+
+    json_string = re.sub(r'\\u\{([0-9a-fA-F]+)\}', convert_rust_unicode, json_string)
+
+    # Now decode standard escape sequences
+    json_string = codecs.decode(json_string, 'unicode_escape')
 
     try:
         data = json.loads(json_string)
