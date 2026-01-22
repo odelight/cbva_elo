@@ -4,10 +4,17 @@ Calculate ELO ratings for CBVA players based on match results.
 
 ELO is updated per-set, not per-match. Each player has an individual rating
 that is updated based on set wins/losses with their partner.
+
+Supports both file-based input (for backward compatibility) and database
+operations for the full pipeline.
 """
 
+import os
 import sys
 from collections import defaultdict
+
+# Add parent directory to path for db imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 DEFAULT_ELO = 1500
 K_FACTOR = 32
@@ -205,6 +212,77 @@ def calculate_all_elos(results_file):
                 process_set(elos, team1_players, team2_players, team1_won)
 
     return dict(elos)
+
+
+def calculate_all_elos_from_db(conn):
+    """
+    Process all sets from database and update player ELO ratings.
+
+    This reads sets from the database in chronological order, calculates
+    ELO changes, records them in elo_history, and updates players.current_elo.
+
+    Args:
+        conn: Database connection
+
+    Returns:
+        Dict of player_id -> (cbva_id, final_elo)
+    """
+    from db import (
+        get_all_sets_for_elo,
+        get_all_player_elos,
+        insert_elo_history,
+        update_player_elo,
+    )
+
+    # Get all sets ordered chronologically
+    sets = get_all_sets_for_elo(conn)
+
+    if not sets:
+        return {}
+
+    # Load current player ELOs from database
+    player_data = get_all_player_elos(conn)
+    elos = {pid: data[1] for pid, data in player_data.items()}
+
+    # Track processed sets to avoid duplicates (shouldn't happen with DB but be safe)
+    processed = set()
+
+    for set_data in sets:
+        set_id = set_data['set_id']
+
+        if set_id in processed:
+            continue
+        processed.add(set_id)
+
+        # Get player IDs for both teams
+        team1_players = (set_data['team1_player1'], set_data['team1_player2'])
+        team2_players = (set_data['team2_player1'], set_data['team2_player2'])
+
+        # Get current ELOs
+        for pid in team1_players + team2_players:
+            if pid not in elos:
+                elos[pid] = DEFAULT_ELO
+
+        # Record ELO before for history
+        elo_before = {pid: elos[pid] for pid in team1_players + team2_players}
+
+        # Determine winner
+        team1_won = set_data['team1_score'] > set_data['team2_score']
+
+        # Update ELOs
+        process_set(elos, team1_players, team2_players, team1_won)
+
+        # Record ELO changes in history
+        for pid in team1_players + team2_players:
+            insert_elo_history(conn, pid, elo_before[pid], elos[pid], set_id)
+
+    # Update final ELOs in players table
+    for pid, elo in elos.items():
+        update_player_elo(conn, pid, elo)
+
+    # Return player_id -> (cbva_id, elo) mapping
+    player_data = get_all_player_elos(conn)
+    return player_data
 
 
 def main():

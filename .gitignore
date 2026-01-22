@@ -24,3 +24,6 @@ Thumbs.db
 
 # Data output
 data/
+
+# Environment variables
+.env
