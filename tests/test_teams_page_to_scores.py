@@ -1,9 +1,9 @@
 import sys
 sys.path.insert(0, '.')
 
-from src.scrape_tournaments import scrape_cbva_links
-from src.tournament_to_teams import scrape_tournament_team_links
-from src.teams_page_to_scores import scrape_team_page
+from src.pipelines.scrape_tournaments import scrape_cbva_links
+from src.pipelines.tournament_to_teams import scrape_tournament_team_links
+from src.pipelines.teams_page_to_scores import scrape_team_page
 
 
 def get_team_url():

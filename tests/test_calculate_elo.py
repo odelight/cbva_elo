@@ -1,7 +1,7 @@
 import sys
 sys.path.insert(0, '.')
 
-from src.calculate_elo import (
+from src.pipelines.calculate_elo import (
     calculate_expected,
     update_elo,
     get_team_elo,

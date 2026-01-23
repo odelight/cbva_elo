@@ -16,13 +16,13 @@ import os
 import re
 import sys
 
-# Add parent directory to path for db imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add project root to path for db imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from scrape_tournaments import scrape_cbva_links
-from tournament_to_teams import scrape_tournament_team_links
-from teams_page_to_scores import scrape_team_page
-from calculate_elo import calculate_all_elos_from_db
+from .scrape_tournaments import scrape_cbva_links, get_tournament_date
+from .tournament_to_teams import scrape_tournament_team_links
+from .teams_page_to_scores import scrape_team_page
+from .calculate_elo import calculate_all_elos_from_db
 
 from db import (
     get_connection,
@@ -67,10 +67,12 @@ def run_pipeline(limit=None):
             print(f"  Limiting to first {len(tournaments)} tournaments")
 
         tournament_db_ids = {}  # url -> db_id
-        for url in tournaments:
+        for i, url in enumerate(tournaments):
             cbva_id = extract_tournament_id(url)
             if cbva_id:
-                db_id = get_or_create_tournament(conn, cbva_id, url)
+                tournament_date = get_tournament_date(url)
+                print(f"  [{i+1}/{len(tournaments)}] {cbva_id} ({tournament_date})")
+                db_id = get_or_create_tournament(conn, cbva_id, url, tournament_date=tournament_date)
                 tournament_db_ids[url] = db_id
         conn.commit()
         print(f"  Inserted/updated {len(tournament_db_ids)} tournaments in database")
@@ -141,7 +143,10 @@ def run_pipeline(limit=None):
                     continue
 
                 # Insert match (will be skipped if already exists due to UNIQUE constraint)
-                match_db_id = insert_match(conn, tournament_db_id, team_db_id, opponent_db_id)
+                match_type = game.get('match_type')
+                match_name = game.get('match_name')
+                match_db_id = insert_match(conn, tournament_db_id, team_db_id, opponent_db_id,
+                                          match_type=match_type, match_name=match_name)
 
                 if match_db_id:
                     # New match - insert sets

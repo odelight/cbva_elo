@@ -13,8 +13,8 @@ import os
 import sys
 from collections import defaultdict
 
-# Add parent directory to path for db imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Add project root to path for db imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 DEFAULT_ELO = 1500
 K_FACTOR = 32
@@ -221,6 +221,9 @@ def calculate_all_elos_from_db(conn):
     This reads sets from the database in chronological order, calculates
     ELO changes, records them in elo_history, and updates players.current_elo.
 
+    Sets are ordered by: tournament date, match type (pool_play before playoff),
+    match number (higher numbers first), and set number.
+
     Args:
         conn: Database connection
 
@@ -232,7 +235,14 @@ def calculate_all_elos_from_db(conn):
         get_all_player_elos,
         insert_elo_history,
         update_player_elo,
+        clear_elo_history,
+        reset_all_player_elos,
     )
+
+    # Clear existing ELO history and reset all player ELOs to 1500
+    # This ensures we recalculate from scratch in the correct order
+    clear_elo_history(conn)
+    reset_all_player_elos(conn)
 
     # Get all sets ordered chronologically
     sets = get_all_sets_for_elo(conn)
@@ -240,9 +250,8 @@ def calculate_all_elos_from_db(conn):
     if not sets:
         return {}
 
-    # Load current player ELOs from database
-    player_data = get_all_player_elos(conn)
-    elos = {pid: data[1] for pid, data in player_data.items()}
+    # Start all players at default ELO
+    elos = {}
 
     # Track processed sets to avoid duplicates (shouldn't happen with DB but be safe)
     processed = set()

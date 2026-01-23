@@ -13,32 +13,42 @@ Python web scraping pipeline for extracting Colorado Beach Volleyball Associatio
 Run the entire pipeline end-to-end, storing results in the PostgreSQL database:
 
 ```bash
-python src/run_pipeline.py
+python -m src.pipelines.run_pipeline
 ```
 
 This scrapes all tournaments, teams, matches, and sets, then calculates ELO ratings for all players.
 
 ### Individual Stages
 
-Scripts can also be run individually in the `src/` directory:
+Scripts can also be run individually in the `src/pipelines/` directory:
 
 ```bash
 # Stage 1: Get all tournament URLs
-python src/scrape_tournaments.py
+python -m src.pipelines.scrape_tournaments
 
 # Stage 2: Get team URLs for a tournament
-python src/tournament_to_teams.py <tournament-url>
-python src/tournament_to_teams.py https://cbva.com/t/12345
+python -m src.pipelines.tournament_to_teams <tournament-url>
+python -m src.pipelines.tournament_to_teams https://cbva.com/t/12345
 
 # Stage 3: Get team data with player IDs and game scores
-python src/teams_page_to_scores.py <team-url>
-python src/teams_page_to_scores.py https://cbva.com/t/12345/teams/67890
+python -m src.pipelines.teams_page_to_scores <team-url>
+python -m src.pipelines.teams_page_to_scores https://cbva.com/t/12345/teams/67890
 
 # Stage 4: Calculate ELO from results file (standalone)
-python src/calculate_elo.py <results-file>
+python -m src.pipelines.calculate_elo <results-file>
 ```
 
 Scripts accept URLs as command-line arguments or prompt interactively if not provided.
+
+### Web Service
+
+Run the Flask web service:
+
+```bash
+python -m src.services.web
+```
+
+Then open http://localhost:5000 in your browser.
 
 ## Database Setup
 
@@ -80,8 +90,9 @@ Default configuration works for local development with no password.
 - `requests` - HTTP requests
 - `beautifulsoup4` - HTML parsing
 - `psycopg2-binary` - PostgreSQL database driver
+- `flask` - Web framework
 
-Install dependencies: `pip install requests beautifulsoup4 psycopg2-binary pytest`
+Install dependencies: `pip install requests beautifulsoup4 psycopg2-binary pytest flask`
 
 ## Testing
 

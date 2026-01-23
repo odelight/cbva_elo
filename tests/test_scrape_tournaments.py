@@ -2,7 +2,7 @@ import re
 import sys
 sys.path.insert(0, '.')
 
-from src.scrape_tournaments import scrape_cbva_links
+from src.pipelines.scrape_tournaments import scrape_cbva_links
 
 
 def test_scrape_cbva_links_returns_list():

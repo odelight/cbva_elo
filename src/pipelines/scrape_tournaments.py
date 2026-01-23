@@ -1,6 +1,37 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+from datetime import date
+
+
+def get_tournament_date(tournament_url):
+    """
+    Fetch the tournament date from the tournament info page.
+
+    Args:
+        tournament_url: URL like https://cbva.com/t/bwQRIBvO
+
+    Returns:
+        date object or None if not found
+    """
+    try:
+        info_url = tournament_url.rstrip('/') + '/info'
+        response = requests.get(info_url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        date_input = soup.find('input', {'type': 'date'})
+
+        if date_input and date_input.get('value'):
+            date_str = date_input['value']  # Format: YYYY-MM-DD
+            year, month, day = map(int, date_str.split('-'))
+            return date(year, month, day)
+
+        return None
+    except Exception as e:
+        print(f"Error fetching date for {tournament_url}: {e}")
+        return None
+
 
 def scrape_cbva_links(url="https://cbva.com/t"):
     """
@@ -47,7 +78,10 @@ def scrape_cbva_links(url="https://cbva.com/t"):
 
 if __name__ == "__main__":
     links = scrape_cbva_links()
-    
+
     print(f"Found {len(links)} unique links:\n")
-    for link in links:
-        print(link)
+    for link in links[:5]:  # Show first 5 with dates
+        tournament_date = get_tournament_date(link)
+        print(f"{tournament_date}  {link}")
+    if len(links) > 5:
+        print(f"... and {len(links) - 5} more")

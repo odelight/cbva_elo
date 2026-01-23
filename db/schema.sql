@@ -16,6 +16,7 @@ CREATE TABLE tournaments (
     cbva_id VARCHAR(50) UNIQUE NOT NULL,  -- e.g., "19Xt68go"
     url VARCHAR(255) NOT NULL,
     name VARCHAR(255),
+    tournament_date DATE,
     scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,6 +38,7 @@ CREATE TABLE matches (
     team2_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
     winner_team_id INTEGER REFERENCES teams(id),
     match_type VARCHAR(20),  -- 'pool_play' or 'playoff'
+    match_name VARCHAR(50),  -- e.g., 'Pool A Match 1', 'Playoff Match 3'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(team1_id, team2_id, tournament_id)
 );

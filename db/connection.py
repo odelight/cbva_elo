@@ -41,7 +41,7 @@ def get_or_create_player(conn, cbva_id):
         return result[0]
 
 
-def get_or_create_tournament(conn, cbva_id, url, name=None):
+def get_or_create_tournament(conn, cbva_id, url, name=None, tournament_date=None):
     """
     Get tournament ID by cbva_id, creating the tournament if not exists.
 
@@ -50,17 +50,19 @@ def get_or_create_tournament(conn, cbva_id, url, name=None):
         cbva_id: CBVA tournament identifier (e.g., "19Xt68go")
         url: Full tournament URL
         name: Optional tournament name
+        tournament_date: Optional date of the tournament
 
     Returns:
         Integer tournament ID from database
     """
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO tournaments (cbva_id, url, name)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (cbva_id) DO UPDATE SET cbva_id = EXCLUDED.cbva_id
+            INSERT INTO tournaments (cbva_id, url, name, tournament_date)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (cbva_id) DO UPDATE SET
+                tournament_date = COALESCE(EXCLUDED.tournament_date, tournaments.tournament_date)
             RETURNING id
-        """, (cbva_id, url, name))
+        """, (cbva_id, url, name, tournament_date))
         result = cur.fetchone()
         return result[0]
 
@@ -110,7 +112,7 @@ def get_team_by_cbva_id(conn, cbva_id, tournament_id):
         return cur.fetchone()
 
 
-def insert_match(conn, tournament_id, team1_id, team2_id, match_type=None):
+def insert_match(conn, tournament_id, team1_id, team2_id, match_type=None, match_name=None):
     """
     Insert a match between two teams.
 
@@ -120,6 +122,7 @@ def insert_match(conn, tournament_id, team1_id, team2_id, match_type=None):
         team1_id: Database ID of first team
         team2_id: Database ID of second team
         match_type: 'pool_play' or 'playoff'
+        match_name: e.g., 'Pool A Match 1', 'Playoff Match 3'
 
     Returns:
         Integer match ID from database, or None if duplicate
@@ -130,11 +133,11 @@ def insert_match(conn, tournament_id, team1_id, team2_id, match_type=None):
             team1_id, team2_id = team2_id, team1_id
 
         cur.execute("""
-            INSERT INTO matches (tournament_id, team1_id, team2_id, match_type)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO matches (tournament_id, team1_id, team2_id, match_type, match_name)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (team1_id, team2_id, tournament_id) DO NOTHING
             RETURNING id
-        """, (tournament_id, team1_id, team2_id, match_type))
+        """, (tournament_id, team1_id, team2_id, match_type, match_name))
         result = cur.fetchone()
         return result[0] if result else None
 
@@ -250,7 +253,11 @@ def get_all_sets_for_elo(conn):
     """
     Get all sets with team and player information for ELO calculation.
 
-    Returns sets ordered by match creation time for chronological processing.
+    Returns sets ordered chronologically:
+    1. Tournament date (oldest first)
+    2. Match type (pool_play before playoff)
+    3. Match number (higher numbers first, e.g. Match 3 before Match 2)
+    4. Set number (1, 2, 3...)
 
     Returns:
         List of dicts with set and player information
@@ -273,7 +280,12 @@ def get_all_sets_for_elo(conn):
             JOIN matches m ON s.match_id = m.id
             JOIN teams t1 ON m.team1_id = t1.id
             JOIN teams t2 ON m.team2_id = t2.id
-            ORDER BY m.created_at, s.set_number
+            JOIN tournaments tourn ON t1.tournament_id = tourn.id
+            ORDER BY
+                tourn.tournament_date ASC NULLS LAST,
+                CASE m.match_type WHEN 'pool_play' THEN 0 WHEN 'playoff' THEN 1 ELSE 2 END,
+                CAST(SUBSTRING(m.match_name FROM '[0-9]+') AS INTEGER) DESC NULLS LAST,
+                s.set_number ASC
         """)
         columns = [desc[0] for desc in cur.description]
         return [dict(zip(columns, row)) for row in cur.fetchall()]
@@ -289,3 +301,23 @@ def get_all_player_elos(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT id, cbva_id, current_elo FROM players")
         return {row[0]: (row[1], float(row[2])) for row in cur.fetchall()}
+
+
+def clear_elo_history(conn):
+    """
+    Delete all ELO history records.
+
+    Used before recalculating ELO ratings from scratch.
+    """
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM elo_history")
+
+
+def reset_all_player_elos(conn):
+    """
+    Reset all players' current ELO ratings to 1500.
+
+    Used before recalculating ELO ratings from scratch.
+    """
+    with conn.cursor() as cur:
+        cur.execute("UPDATE players SET current_elo = 1500.00, updated_at = CURRENT_TIMESTAMP")

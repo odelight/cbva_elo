@@ -48,21 +48,12 @@ def extract_matches_from_data(data, team_id):
     """
     Extract all matches involving the given team from tournament data.
 
-    Returns list of dicts with opponent_team_id and sets (list of score tuples).
+    Returns list of dicts with opponent_team_id, sets, match_type, and match_name.
     """
     games = []
 
-    # Collect matches from playoffs and pool play
-    match_sources = []
-    if 'playoffs' in data and data['playoffs']:
-        match_sources.extend(data['playoffs'])
-    # Pool play matches are nested inside pools[].series
-    if 'pools' in data and data['pools']:
-        for pool in data['pools']:
-            if 'series' in pool and pool['series']:
-                match_sources.extend(pool['series'])
-
-    for match in match_sources:
+    def process_match(match, team_id, match_type, match_name):
+        """Process a single match and return game dict if it involves our team."""
         team_a = match.get('team_a_url')
         team_b = match.get('team_b_url')
         match_games = match.get('games', [])
@@ -75,10 +66,10 @@ def extract_matches_from_data(data, team_id):
             opponent_id = team_a
             is_team_a = False
         else:
-            continue
+            return None
 
         if not opponent_id:
-            continue
+            return None
 
         # Extract individual set scores
         sets = []
@@ -86,17 +77,37 @@ def extract_matches_from_data(data, team_id):
             scores = game.get('scores')
             if scores and len(scores) == 2:
                 if is_team_a:
-                    # Our score is first (team_a)
                     sets.append((scores[0], scores[1]))
                 else:
-                    # Our score is second (team_b), so flip
                     sets.append((scores[1], scores[0]))
 
-        if sets:  # Only add if we have score data
-            games.append({
+        if sets:
+            return {
                 'opponent_team_id': opponent_id,
-                'sets': sets
-            })
+                'sets': sets,
+                'match_type': match_type,
+                'match_name': match_name
+            }
+        return None
+
+    # Process playoff matches
+    if 'playoffs' in data and data['playoffs']:
+        for match in data['playoffs']:
+            match_number = match.get('match_number', 0)
+            match_name = f"Match {match_number}" if match_number else None
+            result = process_match(match, team_id, 'playoff', match_name)
+            if result:
+                games.append(result)
+
+    # Process pool play matches
+    if 'pools' in data and data['pools']:
+        for pool in data['pools']:
+            if 'series' in pool and pool['series']:
+                for idx, match in enumerate(pool['series'], 1):
+                    match_name = f"Match {idx}"
+                    result = process_match(match, team_id, 'pool_play', match_name)
+                    if result:
+                        games.append(result)
 
     return games
 
@@ -186,9 +197,11 @@ if __name__ == "__main__":
         # Output team ID and player IDs
         print(f"{team_id} {' '.join(player_ids)}")
 
-        # Output games with individual set scores
+        # Output games with individual set scores, match type, and match name
         for game in games:
             set_scores = ' '.join(f"{s[0]}-{s[1]}" for s in game['sets'])
-            print(f"{game['opponent_team_id']} {set_scores}")
+            match_type = game.get('match_type', 'unknown')
+            match_name = game.get('match_name', '')
+            print(f"{game['opponent_team_id']} {set_scores} [{match_type}] {match_name}")
     else:
         print("Failed to scrape team page.", file=sys.stderr)
