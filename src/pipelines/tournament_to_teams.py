@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 import re
 import sys
 
+from . import http_client
+
 def scrape_tournament_team_links(tournament_url):
     """
     Scrapes all team links from a CBVA tournament page.
@@ -28,7 +30,7 @@ def scrape_tournament_team_links(tournament_url):
         teams_url = f"{tournament_url}/teams"
         
         # Fetch the teams page
-        response = requests.get(teams_url)
+        response = http_client.get(teams_url)
         response.raise_for_status()
         
         # Parse the HTML

@@ -18,6 +18,10 @@ python -m src.pipelines.run_pipeline
 
 This scrapes all tournaments, teams, matches, and sets, then calculates ELO ratings for all players.
 
+Options:
+- `-n NUM` - Limit to first N tournaments (useful for testing)
+- `-r RATE` - Max requests per second to cbva.com (e.g., `-r 2` for 2 requests/second)
+
 ### Individual Stages
 
 Scripts can also be run individually in the `src/pipelines/` directory:

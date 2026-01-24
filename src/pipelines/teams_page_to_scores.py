@@ -4,6 +4,8 @@ import re
 import sys
 import json
 
+from . import http_client
+
 
 def extract_json_data(html_content):
     """
@@ -137,7 +139,7 @@ def scrape_team_page(team_url):
         team_id = match.group(2)
 
         # Fetch the page
-        response = requests.get(team_url)
+        response = http_client.get(team_url)
         response.raise_for_status()
 
         html_content = response.text

@@ -19,10 +19,12 @@ import sys
 # Add project root to path for db imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from .scrape_tournaments import scrape_cbva_links, get_tournament_date
+from .scrape_tournaments import scrape_cbva_links, get_tournament_info
 from .tournament_to_teams import scrape_tournament_team_links
 from .teams_page_to_scores import scrape_team_page
+from .scrape_player import scrape_player_rating
 from .calculate_elo import calculate_all_elos_from_db
+from .http_client import configure_rate_limit
 
 from db import (
     get_connection,
@@ -38,6 +40,14 @@ from db import (
 def extract_tournament_id(url):
     """Extract tournament ID from URL like https://cbva.com/t/19Xt68go"""
     match = re.search(r'/t/([^/]+)', url)
+    return match.group(1) if match else None
+
+
+def extract_age_group(name):
+    """Extract age group (e.g., '18U', '16U') from tournament name."""
+    if not name:
+        return None
+    match = re.search(r'(\d+U)', name)
     return match.group(1) if match else None
 
 
@@ -70,9 +80,17 @@ def run_pipeline(limit=None):
         for i, url in enumerate(tournaments):
             cbva_id = extract_tournament_id(url)
             if cbva_id:
-                tournament_date = get_tournament_date(url)
-                print(f"  [{i+1}/{len(tournaments)}] {cbva_id} ({tournament_date})")
-                db_id = get_or_create_tournament(conn, cbva_id, url, tournament_date=tournament_date)
+                info = get_tournament_info(url)
+                tournament_date = info['date']
+                tournament_name = info['name']
+                age_group = extract_age_group(tournament_name)
+                print(f"  [{i+1}/{len(tournaments)}] {cbva_id} ({tournament_date}) {age_group or ''}")
+                db_id = get_or_create_tournament(
+                    conn, cbva_id, url,
+                    name=tournament_name,
+                    tournament_date=tournament_date,
+                    age_group=age_group
+                )
                 tournament_db_ids[url] = db_id
         conn.commit()
         print(f"  Inserted/updated {len(tournament_db_ids)} tournaments in database")
@@ -98,6 +116,8 @@ def run_pipeline(limit=None):
 
         # Track teams we've processed for match insertion
         team_db_ids = {}  # (tournament_db_id, cbva_team_id) -> team_db_id
+        # Cache player ratings to avoid duplicate fetches
+        player_ratings = {}  # cbva_id -> rating
 
         for i, team_url in enumerate(all_team_urls):
             print(f"  [{i+1}/{len(all_team_urls)}] {team_url}")
@@ -112,9 +132,14 @@ def run_pipeline(limit=None):
             if not tournament_db_id:
                 continue
 
-            # Create players
-            player1_db_id = get_or_create_player(conn, player_ids[0])
-            player2_db_id = get_or_create_player(conn, player_ids[1])
+            # Fetch player ratings (cached to avoid duplicate requests)
+            for pid in player_ids:
+                if pid not in player_ratings:
+                    player_ratings[pid] = scrape_player_rating(pid)
+
+            # Create players with ratings
+            player1_db_id = get_or_create_player(conn, player_ids[0], player_ratings.get(player_ids[0]))
+            player2_db_id = get_or_create_player(conn, player_ids[1], player_ratings.get(player_ids[1]))
 
             # Create team
             team_db_id = get_or_create_team(
@@ -200,5 +225,16 @@ if __name__ == "__main__":
         metavar="NUM_TOURNAMENTS",
         help="Limit to first N tournaments (useful for testing)",
     )
+    parser.add_argument(
+        "-r", "--rate-limit",
+        type=float,
+        metavar="REQUESTS_PER_SECOND",
+        help="Max requests per second to cbva.com",
+    )
     args = parser.parse_args()
+
+    if args.rate_limit:
+        configure_rate_limit(args.rate_limit)
+        print(f"Rate limiting: {args.rate_limit} requests/second")
+
     run_pipeline(limit=args.n)

@@ -1,7 +1,45 @@
-import requests
 from bs4 import BeautifulSoup
 import re
+import requests
 from datetime import date
+
+from . import http_client
+
+
+def get_tournament_info(tournament_url):
+    """
+    Fetch tournament info (date and name) from the tournament info page.
+
+    Args:
+        tournament_url: URL like https://cbva.com/t/bwQRIBvO
+
+    Returns:
+        Dict with 'date' and 'name' keys, values may be None
+    """
+    result = {'date': None, 'name': None}
+    try:
+        info_url = tournament_url.rstrip('/') + '/info'
+        response = http_client.get(info_url)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Get date
+        date_input = soup.find('input', {'type': 'date'})
+        if date_input and date_input.get('value'):
+            date_str = date_input['value']  # Format: YYYY-MM-DD
+            year, month, day = map(int, date_str.split('-'))
+            result['date'] = date(year, month, day)
+
+        # Get name from text input
+        name_input = soup.find('input', {'type': 'text'})
+        if name_input and name_input.get('value'):
+            result['name'] = name_input['value']
+
+        return result
+    except Exception as e:
+        print(f"Error fetching info for {tournament_url}: {e}")
+        return result
 
 
 def get_tournament_date(tournament_url):
@@ -14,23 +52,7 @@ def get_tournament_date(tournament_url):
     Returns:
         date object or None if not found
     """
-    try:
-        info_url = tournament_url.rstrip('/') + '/info'
-        response = requests.get(info_url)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        date_input = soup.find('input', {'type': 'date'})
-
-        if date_input and date_input.get('value'):
-            date_str = date_input['value']  # Format: YYYY-MM-DD
-            year, month, day = map(int, date_str.split('-'))
-            return date(year, month, day)
-
-        return None
-    except Exception as e:
-        print(f"Error fetching date for {tournament_url}: {e}")
-        return None
+    return get_tournament_info(tournament_url)['date']
 
 
 def scrape_cbva_links(url="https://cbva.com/t"):
@@ -39,7 +61,7 @@ def scrape_cbva_links(url="https://cbva.com/t"):
     """
     try:
         # Fetch the page
-        response = requests.get(url)
+        response = http_client.get(url)
         response.raise_for_status()
         
         # Parse the HTML

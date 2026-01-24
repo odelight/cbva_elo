@@ -18,30 +18,32 @@ def get_connection():
     return psycopg2.connect(**get_connection_params())
 
 
-def get_or_create_player(conn, cbva_id):
+def get_or_create_player(conn, cbva_id, cbva_rating=None):
     """
     Get player ID by cbva_id, creating the player if not exists.
 
     Args:
         conn: Database connection
         cbva_id: CBVA player identifier (e.g., "mjlabreche")
+        cbva_rating: Optional CBVA rating (e.g., "AAA", "AA", "A", "B")
 
     Returns:
         Integer player ID from database
     """
     with conn.cursor() as cur:
-        # Try to insert, on conflict return existing
+        # Try to insert, on conflict update rating if provided
         cur.execute("""
-            INSERT INTO players (cbva_id)
-            VALUES (%s)
-            ON CONFLICT (cbva_id) DO UPDATE SET cbva_id = EXCLUDED.cbva_id
+            INSERT INTO players (cbva_id, cbva_rating)
+            VALUES (%s, %s)
+            ON CONFLICT (cbva_id) DO UPDATE SET
+                cbva_rating = COALESCE(EXCLUDED.cbva_rating, players.cbva_rating)
             RETURNING id
-        """, (cbva_id,))
+        """, (cbva_id, cbva_rating))
         result = cur.fetchone()
         return result[0]
 
 
-def get_or_create_tournament(conn, cbva_id, url, name=None, tournament_date=None):
+def get_or_create_tournament(conn, cbva_id, url, name=None, tournament_date=None, age_group=None):
     """
     Get tournament ID by cbva_id, creating the tournament if not exists.
 
@@ -51,18 +53,21 @@ def get_or_create_tournament(conn, cbva_id, url, name=None, tournament_date=None
         url: Full tournament URL
         name: Optional tournament name
         tournament_date: Optional date of the tournament
+        age_group: Optional age group (e.g., "18U", "16U") extracted from name
 
     Returns:
         Integer tournament ID from database
     """
     with conn.cursor() as cur:
         cur.execute("""
-            INSERT INTO tournaments (cbva_id, url, name, tournament_date)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO tournaments (cbva_id, url, name, tournament_date, age_group)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (cbva_id) DO UPDATE SET
-                tournament_date = COALESCE(EXCLUDED.tournament_date, tournaments.tournament_date)
+                tournament_date = COALESCE(EXCLUDED.tournament_date, tournaments.tournament_date),
+                name = COALESCE(EXCLUDED.name, tournaments.name),
+                age_group = COALESCE(EXCLUDED.age_group, tournaments.age_group)
             RETURNING id
-        """, (cbva_id, url, name, tournament_date))
+        """, (cbva_id, url, name, tournament_date, age_group))
         result = cur.fetchone()
         return result[0]
 

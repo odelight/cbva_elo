@@ -5,6 +5,7 @@
 CREATE TABLE players (
     id SERIAL PRIMARY KEY,
     cbva_id VARCHAR(50) UNIQUE NOT NULL,  -- e.g., "mjlabreche"
+    cbva_rating VARCHAR(10),  -- e.g., "AAA", "AA", "A", "B", "BB", "Open"
     current_elo DECIMAL(7,2) DEFAULT 1500.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -17,6 +18,7 @@ CREATE TABLE tournaments (
     url VARCHAR(255) NOT NULL,
     name VARCHAR(255),
     tournament_date DATE,
+    age_group VARCHAR(10),  -- e.g., "18U", "16U", "14U" extracted from tournament name
     scraped_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
