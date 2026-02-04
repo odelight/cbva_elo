@@ -296,6 +296,73 @@ def get_all_sets_for_elo(conn):
         return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
+def get_all_sets_with_month(conn):
+    """
+    Get all sets with tournament month for train/test splitting.
+
+    Similar to get_all_sets_for_elo but includes tournament month.
+    Excludes sets where tournament_date is NULL.
+
+    Returns:
+        List of dicts with set, player, and month information
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                s.id as set_id,
+                s.team1_score,
+                s.team2_score,
+                t1.player1_id as team1_player1,
+                t1.player2_id as team1_player2,
+                t2.player1_id as team2_player1,
+                t2.player2_id as team2_player2,
+                EXTRACT(MONTH FROM tourn.tournament_date)::INTEGER as tournament_month
+            FROM sets s
+            JOIN matches m ON s.match_id = m.id
+            JOIN teams t1 ON m.team1_id = t1.id
+            JOIN teams t2 ON m.team2_id = t2.id
+            JOIN tournaments tourn ON t1.tournament_id = tourn.id
+            WHERE tourn.tournament_date IS NOT NULL
+            ORDER BY tourn.tournament_date ASC
+        """)
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+
+def get_all_sets_with_date(conn):
+    """
+    Get all sets with tournament month and year for date-specific splitting.
+
+    Similar to get_all_sets_with_month but also includes tournament year.
+    Excludes sets where tournament_date is NULL.
+
+    Returns:
+        List of dicts with set, player, month, and year information
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                s.id as set_id,
+                s.team1_score,
+                s.team2_score,
+                t1.player1_id as team1_player1,
+                t1.player2_id as team1_player2,
+                t2.player1_id as team2_player1,
+                t2.player2_id as team2_player2,
+                EXTRACT(MONTH FROM tourn.tournament_date)::INTEGER as tournament_month,
+                EXTRACT(YEAR FROM tourn.tournament_date)::INTEGER as tournament_year
+            FROM sets s
+            JOIN matches m ON s.match_id = m.id
+            JOIN teams t1 ON m.team1_id = t1.id
+            JOIN teams t2 ON m.team2_id = t2.id
+            JOIN tournaments tourn ON t1.tournament_id = tourn.id
+            WHERE tourn.tournament_date IS NOT NULL
+            ORDER BY tourn.tournament_date ASC
+        """)
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+
 def get_all_player_elos(conn):
     """
     Get current ELO ratings for all players.

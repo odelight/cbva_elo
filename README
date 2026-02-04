@@ -1,13 +1,7 @@
 TODO (Try to keep in order):
--Back everything with a database instead of intermediate files. Postgresql?
--Set up git to point to github
--Add tournament dates, match data to determine order later (pool N etc)
--Scrape letter ratings from players
--Check if tournament is U14, U16 etc and add to DB
--Store players ELO over time, after each set that they play.
+-Docker-ize / containerize frontend + pipeline; sql DB probably doesn't have to be containerized
 -Use GCP or other free hosting to host DB
 -Run script as a scheduled weekly thing, only for tounrmanets not already in the DB.
--Write frontend
 -Host frontend
 -Write chrome extension or firefox extensino to add ELOs etc when looking at CBVA site
 -Try to write an ML model that predicts the scores that two teams would get if they played each other

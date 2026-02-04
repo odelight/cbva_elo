@@ -14,6 +14,8 @@ from .connection import (
     update_player_elo,
     get_player_elo,
     get_all_sets_for_elo,
+    get_all_sets_with_month,
+    get_all_sets_with_date,
     get_all_player_elos,
     clear_elo_history,
     reset_all_player_elos,
