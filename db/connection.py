@@ -363,6 +363,50 @@ def get_all_sets_with_date(conn):
         return [dict(zip(columns, row)) for row in cur.fetchall()]
 
 
+def get_all_sets_with_ratings(conn):
+    """
+    Get all sets with player CBVA ratings for rating-dependent ELO.
+
+    Returns sets ordered chronologically with all 4 player ratings.
+    Excludes sets where tournament_date is NULL.
+
+    Returns:
+        List of dicts with set, player IDs, and player ratings
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                s.id as set_id,
+                s.team1_score,
+                s.team2_score,
+                t1.player1_id as team1_player1,
+                t1.player2_id as team1_player2,
+                t2.player1_id as team2_player1,
+                t2.player2_id as team2_player2,
+                p1.cbva_rating as team1_player1_rating,
+                p2.cbva_rating as team1_player2_rating,
+                p3.cbva_rating as team2_player1_rating,
+                p4.cbva_rating as team2_player2_rating
+            FROM sets s
+            JOIN matches m ON s.match_id = m.id
+            JOIN teams t1 ON m.team1_id = t1.id
+            JOIN teams t2 ON m.team2_id = t2.id
+            JOIN tournaments tourn ON t1.tournament_id = tourn.id
+            JOIN players p1 ON t1.player1_id = p1.id
+            JOIN players p2 ON t1.player2_id = p2.id
+            JOIN players p3 ON t2.player1_id = p3.id
+            JOIN players p4 ON t2.player2_id = p4.id
+            WHERE tourn.tournament_date IS NOT NULL
+            ORDER BY
+                tourn.tournament_date ASC,
+                CASE m.match_type WHEN 'pool_play' THEN 0 WHEN 'playoff' THEN 1 ELSE 2 END,
+                CAST(SUBSTRING(m.match_name FROM '[0-9]+') AS INTEGER) DESC NULLS LAST,
+                s.set_number ASC
+        """)
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+
 def get_all_player_elos(conn):
     """
     Get current ELO ratings for all players.
@@ -393,3 +437,69 @@ def reset_all_player_elos(conn):
     """
     with conn.cursor() as cur:
         cur.execute("UPDATE players SET current_elo = 1500.00, updated_at = CURRENT_TIMESTAMP")
+
+
+def upsert_rating_dependent_elo(conn, player_id, opponent_rating, elo, games_played):
+    """
+    Insert or update a rating-dependent ELO record.
+
+    Args:
+        conn: Database connection
+        player_id: Player's database ID
+        opponent_rating: CBVA rating of opponents (e.g., 'AAA', 'AA', 'A', 'B')
+        elo: Calculated ELO rating
+        games_played: Number of games used to calculate this ELO
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO rating_dependent_elo (player_id, opponent_rating, elo, games_played, updated_at)
+            VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (player_id, opponent_rating)
+            DO UPDATE SET
+                elo = EXCLUDED.elo,
+                games_played = EXCLUDED.games_played,
+                updated_at = CURRENT_TIMESTAMP
+        """, (player_id, opponent_rating, elo, games_played))
+
+
+def clear_rating_dependent_elos(conn):
+    """Delete all rating-dependent ELO records."""
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM rating_dependent_elo")
+
+
+def get_rating_dependent_elos(conn, opponent_rating=None, min_games=0):
+    """
+    Get rating-dependent ELO records.
+
+    Args:
+        conn: Database connection
+        opponent_rating: Filter by specific opponent rating, or None for all
+        min_games: Minimum games played to include (default 0)
+
+    Returns:
+        List of dicts with player_id, cbva_id, opponent_rating, elo, games_played
+    """
+    with conn.cursor() as cur:
+        query = """
+            SELECT
+                rde.player_id,
+                p.cbva_id,
+                rde.opponent_rating,
+                rde.elo,
+                rde.games_played
+            FROM rating_dependent_elo rde
+            JOIN players p ON rde.player_id = p.id
+            WHERE rde.games_played >= %s
+        """
+        params = [min_games]
+
+        if opponent_rating:
+            query += " AND rde.opponent_rating = %s"
+            params.append(opponent_rating)
+
+        query += " ORDER BY rde.elo DESC"
+
+        cur.execute(query, params)
+        columns = [desc[0] for desc in cur.description]
+        return [dict(zip(columns, row)) for row in cur.fetchall()]

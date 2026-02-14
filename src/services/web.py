@@ -40,6 +40,23 @@ def elo_history(cbva_id):
 
             player_id, current_elo = player
 
+            # Get rating-dependent ELOs
+            cur.execute("""
+                SELECT opponent_rating, elo, games_played
+                FROM rating_dependent_elo
+                WHERE player_id = %s
+                ORDER BY
+                    CASE opponent_rating
+                        WHEN 'AAA' THEN 1
+                        WHEN 'AA' THEN 2
+                        WHEN 'A' THEN 3
+                        WHEN 'B' THEN 4
+                        WHEN 'Novice' THEN 5
+                        WHEN 'Unrated' THEN 6
+                    END
+            """, (player_id,))
+            rating_elos = cur.fetchall()
+
             # Get ELO history with tournament, partner, and opponent info
             cur.execute("""
                 SELECT
@@ -84,7 +101,23 @@ def elo_history(cbva_id):
         html = f'<h1>ELO History: {cbva_link}</h1>'
         html += f'<p><strong>Current ELO:</strong> {current_elo:.1f}</p>'
 
+        # Rating-dependent ELOs section
+        if rating_elos:
+            html += '<h2>ELO by Opponent Rating</h2>'
+            html += '<table border="1" cellpadding="5">'
+            html += '<tr><th>vs Rating</th><th>ELO</th><th>Games</th></tr>'
+            for opp_rating, elo, games in rating_elos:
+                elo_float = float(elo)
+                color = 'green' if elo_float > 1500 else 'red' if elo_float < 1500 else 'black'
+                html += f'<tr>'
+                html += f'<td>vs {opp_rating}</td>'
+                html += f'<td style="color:{color}">{elo_float:.1f}</td>'
+                html += f'<td>{games}</td>'
+                html += f'</tr>'
+            html += '</table>'
+
         if history:
+            html += '<h2>Match History</h2>'
             html += '<table border="1" cellpadding="5">'
             html += '<tr><th>Date</th><th>Partner</th><th>Match</th><th>Opponent</th><th>Before</th><th>After</th><th>Change</th></tr>'
             for row in history:

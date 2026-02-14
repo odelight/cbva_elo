@@ -65,6 +65,17 @@ CREATE TABLE elo_history (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Rating-dependent ELO (ELO calculated only against opponents with specific CBVA rating)
+CREATE TABLE rating_dependent_elo (
+    id SERIAL PRIMARY KEY,
+    player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+    opponent_rating VARCHAR(10) NOT NULL,  -- 'AAA', 'AA', 'A', 'B', 'Novice', 'Unrated'
+    elo DECIMAL(7,2) NOT NULL DEFAULT 1500.00,
+    games_played INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(player_id, opponent_rating)
+);
+
 -- Indexes for common queries
 CREATE INDEX idx_players_cbva_id ON players(cbva_id);
 CREATE INDEX idx_players_elo ON players(current_elo DESC);
@@ -75,3 +86,6 @@ CREATE INDEX idx_matches_tournament ON matches(tournament_id);
 CREATE INDEX idx_sets_match ON sets(match_id);
 CREATE INDEX idx_elo_history_player ON elo_history(player_id);
 CREATE INDEX idx_elo_history_recorded ON elo_history(recorded_at);
+CREATE INDEX idx_rating_dependent_elo_player ON rating_dependent_elo(player_id);
+CREATE INDEX idx_rating_dependent_elo_rating ON rating_dependent_elo(opponent_rating);
+CREATE INDEX idx_rating_dependent_elo_elo ON rating_dependent_elo(elo DESC);

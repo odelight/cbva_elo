@@ -16,7 +16,11 @@ from .connection import (
     get_all_sets_for_elo,
     get_all_sets_with_month,
     get_all_sets_with_date,
+    get_all_sets_with_ratings,
     get_all_player_elos,
     clear_elo_history,
     reset_all_player_elos,
+    upsert_rating_dependent_elo,
+    clear_rating_dependent_elos,
+    get_rating_dependent_elos,
 )
